@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Happy Birthday, My Love ✨</title>
+  <!-- Google Fonts: Cormorant Garamond (editorial serif), Caveat (handwriting), Plus Jakarta Sans (clean body) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- =========================================================================
+       ✨ EASY CUSTOMIZATION CONFIG ✨
+       Edit Her Name, Birthday Date, Love Letter, and Polaroid Photos right inside script.js!
+       Or edit the text directly below.
+       ========================================================================= -->
+
+  <!-- Subtle Paper Grain & Floating Petals Canvas -->
+  <div class="paper-texture" aria-hidden="true"></div>
+  <canvas id="petals-canvas" aria-hidden="true"></canvas>
+
+  <!-- Floating Top Bar / Audio & Confetti Trigger -->
+  <header class="top-nav">
+    <div class="nav-badge">
+      <span class="sparkle-dot"></span>
+      <span id="nav-date-badge">Special Edition • Your Birthday</span>
+    </div>
+    <div class="nav-actions">
+      <button id="music-toggle" class="pill-btn" aria-label="Toggle gentle birthday melody" title="Play gentle musicbox melody">
+        <span class="music-icon" id="music-icon">♪</span>
+        <span id="music-label">Play Melody</span>
+      </button>
+      <button id="confetti-btn" class="pill-btn pill-btn-accent" aria-label="Shower confetti">
+        ✨ Celebrate
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <!-- =======================================================================
+         SECTION 1: HERO / SCRAPBOOK COVER
+         ======================================================================= -->
+    <section class="hero-section" id="top">
+      <div class="hero-scrapbook-card">
+        <!-- Decorative Washi Tape -->
+        <div class="washi-tape washi-top-left"></div>
+        <div class="washi-tape washi-top-right"></div>
+
+        <!-- Pressed Flower Stamp SVG -->
+        <div class="pressed-flower-badge" aria-hidden="true">
+          <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="32" cy="32" r="28" stroke="#D97F8C" stroke-width="1.2" stroke-dasharray="3 3"/>
+            <path d="M32 14C35 22 42 24 42 30C42 35 37 38 32 38C27 38 22 35 22 30C22 24 29 22 32 14Z" fill="#F4C7CE" fill-opacity="0.7" stroke="#C86D7A" stroke-width="1.3"/>
+            <path d="M32 50C32 42 32 38 32 32" stroke="#7A9A82" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M32 43C36 41 39 42 40 44" stroke="#7A9A82" stroke-width="1.3" stroke-linecap="round"/>
+            <path d="M32 45C28 43 25 44 24 46" stroke="#7A9A82" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+        </div>
+
+        <p class="handwritten-eyebrow" id="hero-eyebrow">A little scrapbook made just for you...</p>
+
+        <h1 class="hero-title">
+          Happy Birthday,<br />
+          <span class="highlight-name" id="her-name">My Favorite Person</span>
+        </h1>
+
+        <p class="hero-subtitle" id="hero-subtitle">
+          To the girl who turns ordinary days into my favorite memories. Today is all about celebrating you, your laugh, and every little thing that makes you so effortlessly magic.
+        </p>
+
+        <!-- Featured Hero Polaroid Duo -->
+        <div class="hero-polaroids">
+          <div class="mini-polaroid tilt-left">
+            <div class="mini-tape"></div>
+            <div class="polaroid-img-wrap">
+              <img id="hero-img-1" src="" alt="Us together" />
+            </div>
+            <span class="polaroid-caption" id="hero-cap-1">my happiest place ♡</span>
+          </div>
+
+          <div class="mini-polaroid tilt-right">
+            <div class="mini-tape"></div>
+            <div class="polaroid-img-wrap">
+              <img id="hero-img-2" src="" alt="Your smile" />
+            </div>
+            <span class="polaroid-caption" id="hero-cap-2">that smile I adore ✨</span>
+          </div>
+        </div>
+
+        <div class="hero-cta-group">
+          <a href="#polarroid-wall" class="primary-scrapbook-btn">
+            <span>Open Your Love Letter</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M7 13l5 5 5-5M7 6l5 5 5-5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </a>
+          <a href="#polaroid-wall" class="secondary-scrapbook-btn">
+            Explore Our Polaroid Wall
+          </a>
+        </div>
+
+        <!-- Handwritten corner note -->
+        <div class="corner-doodle">
+          <span>psst... click the wax seal below ↓</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- =======================================================================
+         SECTION 2: INTERACTIVE WAX-SEALED ENVELOPE & LOVE LETTER
+         ======================================================================= -->
+    <section class="envelope-section" id="envelope-section">
+      <div class="section-header">
+        <span class="section-tag">Chapter I • Words From My Heart</span>
+        <h2 class="section-title">A Letter Sealed For You</h2>
+        <p class="section-desc">Tap the rose-gold wax seal to break it open and read your birthday letter.</p>
+      </div>
+
+      <div class="envelope-stage">
+        <!-- Interactive Envelope Container -->
+        <div class="envelope-wrapper" id="envelope-wrapper" role="button" tabindex="0" aria-expanded="false" aria-label="Open birthday love letter">
+          <div class="envelope-back"></div>
+
+          <!-- Letter Paper inside Envelope (peeks out when opened) -->
+          <div class="envelope-letter-preview" id="letter-preview">
+            <div class="letter-preview-inner">
+              <p class="preview-greeting" id="preview-greeting">My Dearest,</p>
+              <p class="preview-snippet">I wanted to write down all the things I sometimes forget to say out loud...</p>
+              <span class="preview-read-more">Click to unfold full letter →</span>
+            </div>
+          </div>
+
+          <!-- Envelope Side & Bottom Pocket Flaps -->
+          <div class="envelope-pocket"></div>
+
+          <!-- Top Flap that rotates open -->
+          <div class="envelope-flap" id="envelope-flap"></div>
+
+          <!-- Wax Seal Button -->
+          <button class="wax-seal" id="wax-seal-btn" aria-label="Break wax seal to open letter">
+            <div class="wax-seal-inner">
+              <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M18 28.5C18 28.5 7.5 22.2 7.5 13.8C7.5 10.2 10.3 7.5 13.8 7.5C15.9 7.5 17.4 8.6 18 10.1C18.6 8.6 20.1 7.5 22.2 7.5C25.7 7.5 28.5 10.2 28.5 13.8C28.5 22.2 18 28.5 18 28.5Z" fill="#FFF9F6" fill-opacity="0.92"/>
+              </svg>
+              <span class="wax-ring"></span>
+            </div>
+            <span class="seal-tooltip" id="seal-tooltip">Tap to open ♡</span>
+          </button>
+        </div>
+
+        <!-- Full Unfolded Stationery Letter (Revealed smoothly when envelope opens) -->
+        <article class="unfolded-letter-card" id="unfolded-letter" aria-hidden="true">
+          <div class="washi-tape washi-center"></div>
+
+          <div class="letter-top-meta">
+            <span class="letter-postmark" id="letter-date">Birthday Edition • Delivered with love</span>
+            <button class="close-letter-btn" id="close-letter-btn" aria-label="Fold letter back into envelope">
+              Fold back ✕
+            </button>
+          </div>
+
+          <div class="letter-paper-lines">
+            <h3 class="letter-salutation" id="letter-salutation">To My Dearest Love,</h3>
+
+            <div class="letter-body" id="letter-body">
+              <!-- Populated from script.js CONFIG so it's super easy to edit -->
+            </div>
+
+            <div class="letter-signoff">
+              <p class="signoff-phrase" id="letter-signoff-phrase">Forever & always yours,</p>
+              <p class="signoff-signature" id="your-name">Your Boyfriend ♡</p>
+            </div>
+          </div>
+
+          <div class="letter-footer-stickers">
+            <span class="paper-sticker">✿ 100% Certified Cutie</span>
+            <span class="paper-sticker">♡ Best Girlfriend Award</span>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- =======================================================================
+         SECTION 3: POLAROID MEMORY WALL / SCRAPBOOK GALLERY
+         ======================================================================= -->
+    <section class="polaroid-section" id="polaroid-wall">
+      <div class="section-header">
+        <span class="section-tag">Chapter II • Snapshots of Us</span>
+        <h2 class="section-title">Our Polaroid Memory Wall</h2>
+        <p class="section-desc">
+          Every photo holds a little story I never want to forget. Click any polaroid to flip it over and read the secret note written on the back.
+        </p>
+
+        <!-- Category Filter Pills -->
+        <div class="filter-bar" role="tablist" aria-label="Filter memories">
+          <button class="filter-pill active" data-filter="all">All Memories ✨</button>
+          <button class="filter-pill" data-filter="dates">Favorite Dates ☕</button>
+          <button class="filter-pill" data-filter="silly">Silly & Candid 📸</button>
+          <button class="filter-pill" data-filter="her">Just You Being Pretty 🌸</button>
+        </div>
+      </div>
+
+      <!-- Clothesline / Corkboard Polaroid Grid -->
+      <div class="polaroid-grid" id="polaroid-grid">
+        <!-- Rendered dynamically from script.js CONFIG for effortless photo swapping -->
+      </div>
+
+      <p class="polaroid-helper-tip">
+        <span>💡 Tip: Tap any photo to flip it over, or click "View Full" to see it up close!</span>
+      </p>
+    </section>
+
+    <!-- =======================================================================
+         SECTION 4: SWEET BIRTHDAY WISH / FINAL NOTE
+         ======================================================================= -->
+    <section class="wish-jar-section">
+      <div class="wish-card">
+        <div class="washi-tape washi-top-left"></div>
+        <div class="washi-tape washi-top-right"></div>
+
+        <span class="section-tag">One Last Little Surprise</span>
+        <h2 class="wish-title">Little Notes From My Pocket</h2>
+        <p class="wish-desc">Whenever you need a smile today (or any day), pull a little note from the jar below:</p>
+
+        <div class="note-dispenser">
+          <p class="dispensed-note" id="dispensed-note">
+            "Out of everyone in the world, I still can't believe I get to call you mine."
+          </p>
+          <span class="note-counter" id="note-counter">Note 1 of 8</span>
+        </div>
+
+        <div class="wish-buttons">
+          <button class="primary-scrapbook-btn" id="next-note-btn">
+            <span>Pull Another Little Note 💌</span>
+          </button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- =======================================================================
+       LIGHTBOX MODAL FOR FULL PHOTO VIEW
+       ======================================================================= -->
+  <div class="lightbox-modal" id="lightbox-modal" aria-hidden="true" role="dialog" aria-label="Enlarged Polaroid Memory">
+    <div class="lightbox-backdrop" id="lightbox-backdrop"></div>
+    <div class="lightbox-content">
+      <button class="lightbox-close" id="lightbox-close" aria-label="Close photo view">✕</button>
+      <div class="lightbox-polaroid">
+        <div class="mini-tape"></div>
+        <div class="lightbox-img-container">
+          <img id="lightbox-img" src="" alt="Enlarged memory" />
+        </div>
+        <div class="lightbox-text">
+          <span class="lightbox-date" id="lightbox-date"></span>
+          <h3 class="lightbox-caption" id="lightbox-caption"></h3>
+          <p class="lightbox-back-note" id="lightbox-back-note"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="scrapbook-footer">
+    <p class="footer-handwritten">Handmade with all my love for your special day ♡</p>
+    <p class="footer-sub">Happy Birthday, <span id="footer-her-name">My Love</span> • Forever & Always</p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
