@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Visitor Tracker • /track Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-cream: #FDF9F5;
+      --bg-card: #FFFFFF;
+      --rose-primary: #D87A88;
+      --rose-dark: #B55967;
+      --rose-soft: #FDECEF;
+      --sage: #6E8F76;
+      --sage-soft: #EAF2EC;
+      --gold: #C89B62;
+      --gold-soft: #FDF5EA;
+      --ink: #2C2224;
+      --ink-muted: #766468;
+      --border: #EFE2E4;
+      --shadow: 0 12px 32px rgba(93, 67, 71, 0.07);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg-cream);
+      color: var(--ink);
+      line-height: 1.6;
+      padding: 2rem 1.25rem 4rem;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1120px;
+      margin: 0 auto;
+    }
+
+    /* Top Header */
+    .track-header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      background: var(--bg-card);
+      padding: 1.5rem 2rem;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      margin-bottom: 1.75rem;
+    }
+
+    .header-left h1 {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: 2.1rem;
+      font-weight: 700;
+      color: var(--ink);
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .endpoint-pill {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      background: var(--rose-soft);
+      color: var(--rose-dark);
+      padding: 0.25rem 0.7rem;
+      border-radius: 999px;
+      border: 1px solid rgba(216, 122, 136, 0.3);
+    }
+
+    .header-left p {
+      font-size: 0.92rem;
+      color: var(--ink-muted);
+      margin-top: 0.25rem;
+    }
+
+    .header-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem;
+      align-items: center;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.6rem 1.1rem;
+      border-radius: 999px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--ink);
+      text-decoration: none;
+      transition: all 0.2s ease;
+    }
+
+    .btn:hover {
+      border-color: var(--rose-primary);
+      transform: translateY(-1px);
+    }
+
+    .btn-primary {
+      background: var(--rose-primary);
+      color: #fff;
+      border-color: var(--rose-primary);
+    }
+
+    .btn-primary:hover {
+      background: var(--rose-dark);
+    }
+
+    .live-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--sage);
+      background: var(--sage-soft);
+      padding: 0.35rem 0.8rem;
+      border-radius: 999px;
+    }
+
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--sage);
+      animation: pulse 1.8s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.45; transform: scale(1.25); }
+    }
+
+    /* Stats Summary Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.1rem;
+      margin-bottom: 1.75rem;
+    }
+
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 1.35rem 1.5rem;
+      box-shadow: var(--shadow);
+    }
+
+    .stat-label {
+      font-size: 0.82rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--ink-muted);
+      margin-bottom: 0.4rem;
+    }
+
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--ink);
+      font-family: 'Cormorant Garamond', serif;
+      line-height: 1.1;
+    }
+
+    .stat-sub {
+      font-size: 0.82rem;
+      color: var(--ink-muted);
+      margin-top: 0.35rem;
+    }
+
+    /* Unique IP / Visitor Summary Table */
+    .section-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 1.6rem;
+      box-shadow: var(--shadow);
+      margin-bottom: 1.75rem;
+    }
+
+    .section-card-header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.2rem;
+      padding-bottom: 0.9rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section-card-title {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: 1.55rem;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    .search-input {
+      padding: 0.55rem 1rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      font-size: 0.88rem;
+      min-width: 240px;
+      outline: none;
+    }
+
+    .search-input:focus {
+      border-color: var(--rose-primary);
+    }
+
+    /* Visitor Cards / Table */
+    .visitor-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+      gap: 1rem;
+    }
+
+    .person-card {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.15rem 1.25rem;
+      background: #FFFDFB;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .person-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(93, 67, 71, 0.08);
+    }
+
+    .person-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 0.75rem;
+      margin-bottom: 0.65rem;
+    }
+
+    .ip-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: var(--rose-dark);
+      background: var(--rose-soft);
+      padding: 0.25rem 0.65rem;
+      border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .visit-count-pill {
+      font-size: 0.82rem;
+      font-weight: 700;
+      background: var(--gold-soft);
+      color: #9C7036;
+      padding: 0.25rem 0.7rem;
+      border-radius: 999px;
+      border: 1px solid rgba(200, 155, 98, 0.3);
+    }
+
+    .person-meta {
+      font-size: 0.86rem;
+      color: var(--ink);
+      display: flex;
+      flex-direction: column;
+      gap: 0.28rem;
+    }
+
+    .person-meta span {
+      color: var(--ink-muted);
+    }
+
+    .nickname-btn {
+      margin-top: 0.7rem;
+      font-size: 0.78rem;
+      padding: 0.28rem 0.65rem;
+      border-radius: 6px;
+      border: 1px dashed var(--rose-primary);
+      background: transparent;
+      color: var(--rose-dark);
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .nickname-btn:hover {
+      background: var(--rose-soft);
+    }
+
+    .nickname-tag {
+      display: inline-block;
+      background: #E8F5E9;
+      color: #2E7D32;
+      font-weight: 700;
+      font-size: 0.78rem;
+      padding: 0.15rem 0.55rem;
+      border-radius: 6px;
+      margin-left: 0.35rem;
+    }
+
+    /* Detailed Log Table */
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 0.9rem 0.85rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+
+    th {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--ink-muted);
+      font-weight: 600;
+      background: #FBF6F3;
+    }
+
+    tr:hover td {
+      background: #FFF9FA;
+    }
+
+    .action-chip {
+      display: inline-block;
+      font-size: 0.76rem;
+      font-weight: 600;
+      padding: 0.18rem 0.55rem;
+      border-radius: 999px;
+      background: var(--rose-soft);
+      color: var(--rose-dark);
+      margin: 0.12rem 0.2rem 0.12rem 0;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--ink-muted);
+    }
+
+    .mono {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- HEADER -->
+    <header class="track-header">
+      <div class="header-left">
+        <h1>
+          <span>🕵️‍♂️ Visitor Tracker</span>
+          <span class="endpoint-pill">/track</span>
+        </h1>
+        <p>Tracks how many times she (or anyone else) visits the birthday page, with IP address, location, device model, and clicked actions.</p>
+      </div>
+      <div class="header-actions">
+        <span class="live-badge" id="sync-status">
+          <span class="live-dot"></span>
+          <span id="sync-label">Live Cloud + Local Sync</span>
+        </span>
+        <button class="btn" id="refresh-btn">↻ Refresh Now</button>
+        <button class="btn" id="export-btn">⬇ Export JSON</button>
+        <a href="../index.html" class="btn btn-primary">← Back to Birthday Page</a>
+      </div>
+    </header>
+
+    <!-- STATS CARDS -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Total Page Visits</div>
+        <div class="stat-value" id="stat-total-visits">0</div>
+        <div class="stat-sub">Every time the page was opened</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Unique IP Addresses</div>
+        <div class="stat-value" id="stat-unique-ips">0</div>
+        <div class="stat-sub">Distinct networks / visitors</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Love Letter Opened</div>
+        <div class="stat-value" id="stat-letter-opens">0</div>
+        <div class="stat-sub">Times the wax seal was tapped 💌</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Latest Visit Time</div>
+        <div class="stat-value" id="stat-last-visit" style="font-size: 1.35rem; margin-top: 0.35rem;">—</div>
+        <div class="stat-sub" id="stat-last-ip">Waiting for visits...</div>
+      </div>
+    </div>
+
+    <!-- UNIQUE VISITORS BY IP / DEVICE (EASY IDENTIFICATION) -->
+    <section class="section-card">
+      <div class="section-card-header">
+        <div>
+          <h2 class="section-card-title">📌 Visitors Grouped by IP Address & Device</h2>
+          <p style="font-size: 0.85rem; color: var(--ink-muted);">Easily identify who is who and how many times each IP/device has visited. Click "Label Visitor" to tag her IP (e.g., "Her Phone 💖").</p>
+        </div>
+      </div>
+      <div class="visitor-summary-grid" id="visitor-summary-grid">
+        <div class="empty-state">Loading visitor summary...</div>
+      </div>
+    </section>
+
+    <!-- FULL CHRONOLOGICAL VISIT LOG -->
+    <section class="section-card">
+      <div class="section-card-header">
+        <div>
+          <h2 class="section-card-title">🕒 Detailed Visit History</h2>
+          <p style="font-size: 0.85rem; color: var(--ink-muted);">Complete timestamped log of every visit, IP, ISP, device model, and what buttons they clicked.</p>
+        </div>
+        <input type="text" id="search-input" class="search-input" placeholder="Search IP, city, iPhone, Android..." />
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>IP Address & Tag</th>
+              <th>Location & ISP</th>
+              <th>Device & Browser</th>
+              <th>Visit #</th>
+              <th>What They Did on the Page</th>
+            </tr>
+          </thead>
+          <tbody id="visit-log-tbody">
+            <tr>
+              <td colspan="6" class="empty-state">Loading visit logs...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "bday_scrapbook_visitor_logs_v1";
+    const LABELS_KEY = "bday_visitor_ip_labels_v1";
+    const LIVE_SYNC_TOPIC = "jit-sarmili-zifa-bday-track-9921";
+
+    let allVisits = [];
+
+    function getIpLabels() {
+      try {
+        return JSON.parse(localStorage.getItem(LABELS_KEY) || "{}");
+      } catch (e) {
+        return {};
+      }
+    }
+
+    function saveIpLabel(ip, label) {
+      const labels = getIpLabels();
+      if (label && label.trim()) {
+        labels[ip] = label.trim();
+      } else {
+        delete labels[ip];
+      }
+      localStorage.setItem(LABELS_KEY, JSON.stringify(labels));
+      renderDashboard();
+    }
+
+    function getLocalVisits() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+      } catch (e) {
+        return [];
+      }
+    }
+
+    async function fetchCloudVisits() {
+      const syncLabel = document.getElementById("sync-label");
+      try {
+        syncLabel.textContent = "Syncing cloud logs...";
+        // Fetch cached messages from ntfy JSON feed (poll=1 returns all buffered messages immediately)
+        const res = await fetch(`https://ntfy.sh/${encodeURIComponent(LIVE_SYNC_TOPIC)}/json?poll=1&since=all`);
+        if (!res.ok) throw new Error("Cloud fetch status " + res.status);
+
+        const text = await res.text();
+        const lines = text.trim().split("\n").filter(Boolean);
+        const cloudMap = new Map();
+
+        for (const line of lines) {
+          try {
+            const env = JSON.parse(line);
+            if (env && env.event === "message" && env.message) {
+              const payload = JSON.parse(env.message);
+              if (payload && payload.sessionId) {
+                const existing = cloudMap.get(payload.sessionId);
+                if (!existing) {
+                  cloudMap.set(payload.sessionId, payload);
+                } else {
+                  // Merge updated actions if an eventUpdate arrived later
+                  const mergedActions = Array.from(new Set([...(existing.actions || []), ...(payload.actions || [])]));
+                  cloudMap.set(payload.sessionId, { ...existing, ...payload, actions: mergedActions });
+                }
+              }
+            }
+          } catch (err) {}
+        }
+
+        syncLabel.textContent = "Live Cloud + Local Sync Active";
+        return Array.from(cloudMap.values());
+      } catch (e) {
+        syncLabel.textContent = "Local Browser Storage Mode";
+        return [];
+      }
+    }
+
+    async function loadAllVisits() {
+      const local = getLocalVisits();
+      const cloud = await fetchCloudVisits();
+
+      // Deduplicate by sessionId, preferring records with more actions or resolved IP
+      const mergedMap = new Map();
+      [...cloud, ...local].forEach((item) => {
+        if (!item || !item.sessionId) return;
+        const prev = mergedMap.get(item.sessionId);
+        if (!prev) {
+          mergedMap.set(item.sessionId, item);
+        } else {
+          const actions = Array.from(new Set([...(prev.actions || []), ...(item.actions || [])]));
+          const ip = (item.ip && item.ip !== "Detecting...") ? item.ip : prev.ip;
+          mergedMap.set(item.sessionId, { ...prev, ...item, ip, actions });
+        }
+      });
+
+      allVisits = Array.from(mergedMap.values()).sort(
+        (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      );
+
+      // Persist merged list locally too
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(allVisits.slice(0, 300)));
+      } catch (e) {}
+
+      renderDashboard();
+    }
+
+    function escapeHtml(str) {
+      return String(str || "").replace(/[&<>"']/g, (m) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      }[m]));
+    }
+
+    function formatTime(iso) {
+      if (!iso) return "—";
+      const d = new Date(iso);
+      return d.toLocaleString(undefined, {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit"
+      });
+    }
+
+    function renderDashboard() {
+      const labels = getIpLabels();
+      const query = (document.getElementById("search-input").value || "").toLowerCase().trim();
+
+      // Compute top-level stats
+      document.getElementById("stat-total-visits").textContent = allVisits.length;
+
+      const uniqueIps = new Set(allVisits.map((v) => v.ip || v.visitorId)).size;
+      document.getElementById("stat-unique-ips").textContent = uniqueIps;
+
+      const letterOpens = allVisits.filter(
+        (v) => Array.isArray(v.actions) && v.actions.some((a) => a.includes("Love Letter"))
+      ).length;
+      document.getElementById("stat-letter-opens").textContent = letterOpens;
+
+      if (allVisits.length > 0) {
+        const latest = allVisits[0];
+        document.getElementById("stat-last-visit").textContent = formatTime(latest.timestamp);
+        const tag = labels[latest.ip] ? ` (${labels[latest.ip]})` : "";
+        document.getElementById("stat-last-ip").textContent = `${latest.ip}${tag} • ${latest.device || ""}`;
+      } else {
+        document.getElementById("stat-last-visit").textContent = "No visits yet";
+        document.getElementById("stat-last-ip").textContent = "Open the main page to test!";
+      }
+
+      // Group by IP + VisitorID for easy identification
+      const grouped = new Map();
+      allVisits.forEach((v) => {
+        const key = v.ip && v.ip !== "Detecting..." ? v.ip : (v.visitorId || "Unknown");
+        if (!grouped.has(key)) {
+          grouped.set(key, {
+            ip: v.ip || "Unknown IP",
+            visitorIds: new Set([v.visitorId]),
+            count: 0,
+            firstSeen: v.timestamp,
+            lastSeen: v.timestamp,
+            city: v.city,
+            region: v.region,
+            country: v.country,
+            flag: v.flag || "🌍",
+            isp: v.isp,
+            device: v.device,
+            os: v.os,
+            browser: v.browser,
+            screen: v.screen,
+            actions: new Set()
+          });
+        }
+        const g = grouped.get(key);
+        g.count += 1;
+        if (v.visitorId) g.visitorIds.add(v.visitorId);
+        if (new Date(v.timestamp) > new Date(g.lastSeen)) g.lastSeen = v.timestamp;
+        if (new Date(v.timestamp) < new Date(g.firstSeen)) g.firstSeen = v.timestamp;
+        (v.actions || []).forEach((a) => g.actions.add(a));
+      });
+
+      const summaryGrid = document.getElementById("visitor-summary-grid");
+      if (grouped.size === 0) {
+        summaryGrid.innerHTML = `<div class="empty-state">No visits recorded yet. Open the main birthday page and refresh this dashboard!</div>`;
+      } else {
+        summaryGrid.innerHTML = Array.from(grouped.values())
+          .map((g) => {
+            const customName = labels[g.ip] || "";
+            return `
+              <div class="person-card">
+                <div class="person-top">
+                  <div>
+                    <div class="ip-badge">
+                      <span>${escapeHtml(g.flag)}</span>
+                      <span>${escapeHtml(g.ip)}</span>
+                    </div>
+                    ${customName ? `<span class="nickname-tag">${escapeHtml(customName)}</span>` : ""}
+                  </div>
+                  <span class="visit-count-pill">${g.count} ${g.count === 1 ? "visit" : "visits"}</span>
+                </div>
+                <div class="person-meta">
+                  <div><strong>Device:</strong> ${escapeHtml(g.device)} (${escapeHtml(g.os)} • ${escapeHtml(g.browser)})</div>
+                  <div><strong>Location:</strong> ${escapeHtml([g.city, g.region, g.country].filter(Boolean).join(", ") || "Unknown")}</div>
+                  <div><strong>Network / ISP:</strong> ${escapeHtml(g.isp || "Unknown")}</div>
+                  <div><strong>Screen:</strong> ${escapeHtml(g.screen || "—")} • <strong>ID:</strong> <span class="mono">${escapeHtml(Array.from(g.visitorIds).join(", "))}</span></div>
+                  <div><strong>Last Visit:</strong> ${escapeHtml(formatTime(g.lastSeen))}</div>
+                </div>
+                <button class="nickname-btn" data-label-ip="${escapeHtml(g.ip)}">
+                  🏷️ ${customName ? "Edit Label" : "Label This IP (e.g. Her Phone 💖)"}
+                </button>
+              </div>
+            `;
+          })
+          .join("");
+
+        summaryGrid.querySelectorAll("[data-label-ip]").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const ip = btn.getAttribute("data-label-ip");
+            const current = getIpLabels()[ip] || "";
+            const next = prompt(`Give IP "${ip}" an easy nickname (e.g. "Her iPhone 💖" or "My PC"):`, current);
+            if (next !== null) {
+              saveIpLabel(ip, next);
+            }
+          });
+        });
+      }
+
+      // Render detailed table
+      const filtered = allVisits.filter((v) => {
+        if (!query) return true;
+        const hay = [
+          v.ip,
+          v.visitorId,
+          v.city,
+          v.region,
+          v.country,
+          v.isp,
+          v.device,
+          v.os,
+          v.browser,
+          labels[v.ip] || "",
+          ...(v.actions || [])
+        ]
+          .join(" ")
+          .toLowerCase();
+        return hay.includes(query);
+      });
+
+      const tbody = document.getElementById("visit-log-tbody");
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="empty-state">No matching visits found.</td></tr>`;
+      } else {
+        tbody.innerHTML = filtered
+          .map((v) => {
+            const customName = labels[v.ip] || "";
+            const loc = [v.city, v.region, v.country].filter(Boolean).join(", ") || "Unknown";
+            const actionsHtml = (v.actions || ["Opened Page"])
+              .map((a) => `<span class="action-chip">${escapeHtml(a)}</span>`)
+              .join("");
+
+            return `
+              <tr>
+                <td style="white-space: nowrap;">
+                  <strong>${escapeHtml(formatTime(v.timestamp))}</strong>
+                  <div style="font-size: 0.76rem; color: var(--ink-muted);">${escapeHtml(v.timezone || "")}</div>
+                </td>
+                <td>
+                  <div class="mono" style="font-weight: 600; color: var(--rose-dark);">${escapeHtml(v.ip)}</div>
+                  ${customName ? `<div class="nickname-tag" style="margin: 0.25rem 0 0 0;">${escapeHtml(customName)}</div>` : ""}
+                  <div style="font-size: 0.75rem; color: var(--ink-muted);">ID: ${escapeHtml(v.visitorId || "—")}</div>
+                </td>
+                <td>
+                  <div>${escapeHtml(v.flag || "🌍")} ${escapeHtml(loc)}</div>
+                  <div style="font-size: 0.78rem; color: var(--ink-muted);">${escapeHtml(v.isp || "")}</div>
+                </td>
+                <td>
+                  <div><strong>${escapeHtml(v.device || "Unknown Device")}</strong></div>
+                  <div style="font-size: 0.78rem; color: var(--ink-muted);">${escapeHtml(v.os || "")} • ${escapeHtml(v.browser || "")} (${escapeHtml(v.screen || "")})</div>
+                </td>
+                <td>
+                  <span class="visit-count-pill">Visit #${escapeHtml(v.deviceVisitCount || 1)}</span>
+                </td>
+                <td>${actionsHtml}</td>
+              </tr>
+            `;
+          })
+          .join("");
+      }
+    }
+
+    document.getElementById("refresh-btn").addEventListener("click", loadAllVisits);
+    document.getElementById("search-input").addEventListener("input", renderDashboard);
+
+    document.getElementById("export-btn").addEventListener("click", () => {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(allVisits, null, 2));
+      const a = document.createElement("a");
+      a.setAttribute("href", dataStr);
+      a.setAttribute("download", `birthday-visitor-logs-${new Date().toISOString().slice(0, 10)}.json`);
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    });
+
+    // Initial load & auto-refresh every 15 seconds
+    loadAllVisits();
+    setInterval(loadAllVisits, 15000);
+  </script>
+</body>
+</html>

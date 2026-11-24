@@ -114,7 +114,26 @@ const BIRTHDAY_CONFIG = {
     "Every time my phone lights up with your name, I still smile like an idiot.",
     "You are my favorite notification, my favorite hello, and my hardest goodbye.",
     "Happy Birthday, baby! Tonight is all about spoiling you ♡"
-  ]
+  ],
+
+  // =========================================================================
+  // 🕵️‍♂️ VISITOR TRACKING CONFIGURATION (/track endpoint)
+  // =========================================================================
+  // Visits are automatically recorded with IP, City/Country, ISP, Device model,
+  // Browser, and actions (like opening the love letter or playing music).
+  // View all visits anytime at:  /track/  (or /track/index.html)
+  //
+  // OPTIONAL CLOUD SYNC (to see visits from her phone on your own phone/PC):
+  // You can paste a free webhook or JSON storage URL below (e.g. from
+  // https://ntfy.sh/your-secret-topic, Discord Webhook, or Make/Zapier webhook)
+  tracking: {
+    enabled: true,
+    storageKey: "bday_scrapbook_visitor_logs_v1",
+    // Default live sync channel using ntfy.sh public JSON stream (works instantly across devices without signup!)
+    // You can change "jit-sarmili-zifa-bday-track-9921" to any secret string you want.
+    liveSyncTopic: "jit-sarmili-zifa-bday-track-9921",
+    customWebhookUrl: "" // Optional: Discord / Telegram / Custom webhook URL
+  }
 };
 
 /* ==========================================================================
@@ -556,6 +575,262 @@ function setupMusicBox() {
 }
 
 /* ==========================================================================
+   🕵️‍♂️ VISITOR & INTERACTION TRACKER (Feeds into /track endpoint)
+   ========================================================================== */
+const VisitorTracker = {
+  currentSessionId: null,
+  sessionData: null,
+
+  getDeviceDescription() {
+    const ua = navigator.userAgent || "";
+    let os = "Unknown OS";
+    let device = "Desktop / Laptop";
+    let browser = "Browser";
+
+    // Detect OS & specific phone models where possible
+    if (/iPhone/i.test(ua)) {
+      os = "iOS (iPhone)";
+      device = "📱 Apple iPhone";
+    } else if (/iPad/i.test(ua)) {
+      os = "iPadOS";
+      device = "📱 Apple iPad";
+    } else if (/Android/i.test(ua)) {
+      os = "Android";
+      const match = ua.match(/Android\s+([\d.]+);\s*([^;)]+)/i);
+      if (match && match[2]) {
+        device = `📱 Android (${match[2].trim()})`;
+        os = `Android ${match[1]}`;
+      } else {
+        device = "📱 Android Phone";
+      }
+    } else if (/Windows NT/i.test(ua)) {
+      os = "Windows";
+      device = "💻 Windows PC";
+    } else if (/Mac OS X/i.test(ua)) {
+      os = "macOS";
+      device = "💻 Mac";
+    } else if (/Linux/i.test(ua)) {
+      os = "Linux";
+      device = "💻 Linux PC";
+    }
+
+    // Detect Browser
+    if (/Instagram/i.test(ua)) browser = "Instagram In-App Browser";
+    else if (/FBAN|FBAV/i.test(ua)) browser = "Facebook / Messenger Browser";
+    else if (/WhatsApp/i.test(ua)) browser = "WhatsApp In-App Browser";
+    else if (/Edg\//i.test(ua)) browser = "Microsoft Edge";
+    else if (/OPR\//i.test(ua)) browser = "Opera";
+    else if (/Chrome\//i.test(ua) && !/Edg\//i.test(ua)) browser = "Google Chrome";
+    else if (/Safari\//i.test(ua) && !/Chrome\//i.test(ua)) browser = "Apple Safari";
+    else if (/Firefox\//i.test(ua)) browser = "Mozilla Firefox";
+
+    return {
+      device,
+      os,
+      browser,
+      screen: `${window.screen.width}x${window.screen.height}`,
+      language: navigator.language || "en",
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Unknown",
+      userAgent: ua
+    };
+  },
+
+  getVisitorId() {
+    let vid = localStorage.getItem("bday_visitor_uid");
+    if (!vid) {
+      vid = "V-" + Math.random().toString(36).substring(2, 8).toUpperCase();
+      localStorage.setItem("bday_visitor_uid", vid);
+    }
+    return vid;
+  },
+
+  getLocalLogs() {
+    try {
+      const key = (BIRTHDAY_CONFIG.tracking && BIRTHDAY_CONFIG.tracking.storageKey) || "bday_scrapbook_visitor_logs_v1";
+      return JSON.parse(localStorage.getItem(key) || "[]");
+    } catch (e) {
+      return [];
+    }
+  },
+
+  saveLocalLogs(logs) {
+    try {
+      const key = (BIRTHDAY_CONFIG.tracking && BIRTHDAY_CONFIG.tracking.storageKey) || "bday_scrapbook_visitor_logs_v1";
+      localStorage.setItem(key, JSON.stringify(logs.slice(0, 300)));
+    } catch (e) {
+      // ignore storage quota errors
+    }
+  },
+
+  async fetchIpDetails() {
+    // Try primary rich IP + Geolocation API (ipwho.is)
+    try {
+      const res = await fetch("https://ipwho.is/");
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.ip) {
+          return {
+            ip: data.ip,
+            city: data.city || "Unknown City",
+            region: data.region || "",
+            country: data.country || "Unknown Country",
+            flag: (data.flag && data.flag.emoji) || "🌍",
+            isp: (data.connection && (data.connection.isp || data.connection.org)) || "Unknown ISP"
+          };
+        }
+      }
+    } catch (e) {}
+
+    // Fallback 1: ipapi.co
+    try {
+      const res2 = await fetch("https://ipapi.co/json/");
+      if (res2.ok) {
+        const d2 = await res2.json();
+        if (d2 && d2.ip) {
+          return {
+            ip: d2.ip,
+            city: d2.city || "Unknown City",
+            region: d2.region || "",
+            country: d2.country_name || "Unknown Country",
+            flag: "🌍",
+            isp: d2.org || "Unknown ISP"
+          };
+        }
+      }
+    } catch (e) {}
+
+    // Fallback 2: ipify (IP only)
+    try {
+      const res3 = await fetch("https://api.ipify.org?format=json");
+      if (res3.ok) {
+        const d3 = await res3.json();
+        return {
+          ip: d3.ip || "Unknown IP",
+          city: "Unknown",
+          region: "",
+          country: "",
+          flag: "🌍",
+          isp: "Unknown ISP"
+        };
+      }
+    } catch (e) {}
+
+    return {
+      ip: "Offline / Local",
+      city: "Local Device",
+      region: "",
+      country: "",
+      flag: "🏠",
+      isp: "Local Network"
+    };
+  },
+
+  async syncToCloud(record) {
+    const cfg = BIRTHDAY_CONFIG.tracking || {};
+    if (!cfg.enabled) return;
+
+    // 1. Live Cross-Device Sync via ntfy.sh JSON pub/sub (allows /track dashboard on ANY device to read full visitor history!)
+    if (cfg.liveSyncTopic) {
+      try {
+        await fetch(`https://ntfy.sh/${encodeURIComponent(cfg.liveSyncTopic)}`, {
+          method: "POST",
+          headers: {
+            "Title": `Visit from ${record.ip} (${record.device})`,
+            "Tags": "sparkling_heart"
+          },
+          body: JSON.stringify(record)
+        });
+      } catch (e) {}
+    }
+
+    // 2. Optional Custom Webhook (Discord / Slack / Make)
+    if (cfg.customWebhookUrl) {
+      try {
+        await fetch(cfg.customWebhookUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            content: `💖 **New Birthday Page Visit!**\n**Visitor ID:** \`${record.visitorId}\` (Visit #${record.deviceVisitCount})\n**IP Address:** \`${record.ip}\`\n**Location:** ${record.flag} ${record.city}, ${record.region}, ${record.country}\n**ISP:** ${record.isp}\n**Device:** ${record.device} • ${record.os} • ${record.browser}\n**Screen:** ${record.screen} • **Timezone:** ${record.timezone}\n**Time:** ${new Date(record.timestamp).toLocaleString()}`,
+            record
+          })
+        });
+      } catch (e) {}
+    }
+  },
+
+  async init() {
+    if (BIRTHDAY_CONFIG.tracking && BIRTHDAY_CONFIG.tracking.enabled === false) return;
+
+    const visitorId = this.getVisitorId();
+    const prevCount = Number(localStorage.getItem("bday_device_visit_count") || "0") + 1;
+    localStorage.setItem("bday_device_visit_count", String(prevCount));
+
+    const devInfo = this.getDeviceDescription();
+    this.currentSessionId = "S-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6);
+
+    const record = {
+      sessionId: this.currentSessionId,
+      visitorId,
+      deviceVisitCount: prevCount,
+      timestamp: new Date().toISOString(),
+      ip: "Detecting...",
+      city: "Detecting...",
+      region: "",
+      country: "",
+      flag: "⏳",
+      isp: "Detecting...",
+      referrer: document.referrer || "Direct Link / Typed URL",
+      pageUrl: window.location.href,
+      actions: ["Opened Birthday Page"],
+      ...devInfo
+    };
+
+    this.sessionData = record;
+
+    // Save immediately to local logs
+    const logs = this.getLocalLogs();
+    logs.unshift(record);
+    this.saveLocalLogs(logs);
+
+    // Fetch IP & Geolocation asynchronously
+    const ipData = await this.fetchIpDetails();
+    Object.assign(record, ipData);
+
+    // Update local logs with resolved IP
+    const updatedLogs = this.getLocalLogs();
+    const idx = updatedLogs.findIndex((l) => l.sessionId === this.currentSessionId);
+    if (idx !== -1) {
+      updatedLogs[idx] = record;
+      this.saveLocalLogs(updatedLogs);
+    }
+
+    // Push visit to cloud stream so you can see it on /track from your own phone/computer
+    await this.syncToCloud(record);
+  },
+
+  logAction(actionName) {
+    if (!this.sessionData) return;
+    if (!this.sessionData.actions.includes(actionName)) {
+      this.sessionData.actions.push(actionName);
+      const logs = this.getLocalLogs();
+      const idx = logs.findIndex((l) => l.sessionId === this.currentSessionId);
+      if (idx !== -1) {
+        logs[idx] = this.sessionData;
+        this.saveLocalLogs(logs);
+      }
+      // Sync important actions (like opening the love letter)
+      if (actionName === "Opened Love Letter 💌") {
+        this.syncToCloud({
+          ...this.sessionData,
+          eventUpdate: true,
+          latestAction: actionName
+        });
+      }
+    }
+  }
+};
+
+/* ==========================================================================
    BOOT EVERYTHING ON DOM READY
    ========================================================================== */
 document.addEventListener("DOMContentLoaded", () => {
@@ -564,6 +839,25 @@ document.addEventListener("DOMContentLoaded", () => {
   setupPocketNotes();
   setupCanvas();
   setupMusicBox();
+  VisitorTracker.init();
+
+  // Track interactive milestones so you know what she clicked!
+  const envEl = document.getElementById("envelope-wrapper");
+  if (envEl) {
+    envEl.addEventListener("click", () => VisitorTracker.logAction("Opened Love Letter 💌"));
+  }
+  const musicBtn = document.getElementById("music-toggle");
+  if (musicBtn) {
+    musicBtn.addEventListener("click", () => VisitorTracker.logAction("Played Birthday Melody ♪"));
+  }
+  const noteBtn = document.getElementById("next-note-btn");
+  if (noteBtn) {
+    noteBtn.addEventListener("click", () => VisitorTracker.logAction("Pulled Pocket Note 🏺"));
+  }
+  const gridEl = document.getElementById("polaroid-grid");
+  if (gridEl) {
+    gridEl.addEventListener("click", () => VisitorTracker.logAction("Flipped Polaroid Photo 📸"));
+  }
 
   // Filter buttons for Polaroid Wall
   document.querySelectorAll(".filter-pill").forEach((pill) => {
@@ -577,6 +871,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Celebrate Confetti button
   document.getElementById("confetti-btn").addEventListener("click", () => {
     burstConfettiHearts(42);
+    VisitorTracker.logAction("Clicked Celebrate Confetti ✨");
   });
 
   // Close Lightbox
