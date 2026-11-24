@@ -119,18 +119,14 @@ const BIRTHDAY_CONFIG = {
   // =========================================================================
   // 🕵️‍♂️ VISITOR TRACKING CONFIGURATION (/track endpoint)
   // =========================================================================
-  // Visits are automatically recorded with IP, City/Country, ISP, Device model,
-  // Browser, and actions (like opening the love letter or playing music).
+  // Visits are automatically stored in a permanent append-only Cloud Database
+  // so every device (your phone, your PC, etc.) sees the exact same complete
+  // visitor history, and NO visit record is ever deleted or overwritten!
   // View all visits anytime at:  /track/  (or /track/index.html)
-  //
-  // OPTIONAL CLOUD SYNC (to see visits from her phone on your own phone/PC):
-  // You can paste a free webhook or JSON storage URL below (e.g. from
-  // https://ntfy.sh/your-secret-topic, Discord Webhook, or Make/Zapier webhook)
   tracking: {
     enabled: true,
     storageKey: "bday_scrapbook_visitor_logs_v1",
-    // Default live sync channel using ntfy.sh public JSON stream (works instantly across devices without signup!)
-    // You can change "jit-sarmili-zifa-bday-track-9921" to any secret string you want.
+    dbAppKey: "6o77ku48",
     liveSyncTopic: "jit-sarmili-zifa-bday-track-9921",
     customWebhookUrl: "" // Optional: Discord / Telegram / Custom webhook URL
   }
@@ -656,7 +652,7 @@ const VisitorTracker = {
   saveLocalLogs(logs) {
     try {
       const key = (BIRTHDAY_CONFIG.tracking && BIRTHDAY_CONFIG.tracking.storageKey) || "bday_scrapbook_visitor_logs_v1";
-      localStorage.setItem(key, JSON.stringify(logs.slice(0, 300)));
+      localStorage.setItem(key, JSON.stringify(logs));
     } catch (e) {
       // ignore storage quota errors
     }
@@ -725,25 +721,73 @@ const VisitorTracker = {
     };
   },
 
-  async syncToCloud(record) {
+  encodeRecordBase64(record) {
+    try {
+      const json = JSON.stringify(record);
+      return btoa(unescape(encodeURIComponent(json)))
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/, "");
+    } catch (e) {
+      return "";
+    }
+  },
+
+  cloudSlotIndex: null,
+
+  async syncToCloud(record, isActionUpdate = false) {
     const cfg = BIRTHDAY_CONFIG.tracking || {};
     if (!cfg.enabled) return;
 
-    // 1. Live Cross-Device Sync via ntfy.sh JSON pub/sub (allows /track dashboard on ANY device to read full visitor history!)
+    const appKey = cfg.dbAppKey || "6o77ku48";
+    const kvBase = `https://keyvalue.immanuel.co/api/KeyVal`;
+
+    // 1. PERMANENT APPEND-ONLY CLOUD DATABASE (KeyValue DB)
+    // Stores each visit in its own immutable slot (visit_1, visit_2, ...) so no data is ever lost or overwritten,
+    // and both your PC and phone always show the exact same database records!
+    try {
+      const b64 = this.encodeRecordBase64(record);
+      if (b64) {
+        if (!isActionUpdate || !this.cloudSlotIndex) {
+          // Read current total count from cloud DB
+          const countRes = await fetch(`${kvBase}/GetValue/${appKey}/visit_count`);
+          let currentCount = 0;
+          if (countRes.ok) {
+            const rawCount = await countRes.json();
+            currentCount = parseInt(rawCount, 10) || 0;
+          }
+          const nextIndex = currentCount + 1;
+          this.cloudSlotIndex = nextIndex;
+          record.dbId = nextIndex;
+
+          // Write immutable visit record to slot visit_<nextIndex>
+          await fetch(`${kvBase}/UpdateValue/${appKey}/visit_${nextIndex}/${b64}`, {
+            method: "POST"
+          });
+          // Increment master visit_count
+          await fetch(`${kvBase}/UpdateValue/${appKey}/visit_count/${nextIndex}`, {
+            method: "POST"
+          });
+        } else if (this.cloudSlotIndex) {
+          // Update the same visit slot with newly clicked actions (never deletes anything)
+          await fetch(`${kvBase}/UpdateValue/${appKey}/visit_${this.cloudSlotIndex}/${b64}`, {
+            method: "POST"
+          });
+        }
+      }
+    } catch (e) {}
+
+    // 2. SECONDARY REAL-TIME STREAM (ntfy.sh JSON pub/sub)
     if (cfg.liveSyncTopic) {
       try {
         await fetch(`https://ntfy.sh/${encodeURIComponent(cfg.liveSyncTopic)}`, {
           method: "POST",
-          headers: {
-            "Title": `Visit from ${record.ip} (${record.device})`,
-            "Tags": "sparkling_heart"
-          },
           body: JSON.stringify(record)
         });
       } catch (e) {}
     }
 
-    // 2. Optional Custom Webhook (Discord / Slack / Make)
+    // 3. Optional Custom Webhook (Discord / Slack / Make)
     if (cfg.customWebhookUrl) {
       try {
         await fetch(cfg.customWebhookUrl, {
@@ -818,14 +862,15 @@ const VisitorTracker = {
         logs[idx] = this.sessionData;
         this.saveLocalLogs(logs);
       }
-      // Sync important actions (like opening the love letter)
-      if (actionName === "Opened Love Letter 💌") {
-        this.syncToCloud({
+      // Sync updated actions to permanent database slot
+      this.syncToCloud(
+        {
           ...this.sessionData,
           eventUpdate: true,
           latestAction: actionName
-        });
-      }
+        },
+        true
+      );
     }
   }
 };

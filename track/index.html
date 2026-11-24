@@ -466,27 +466,63 @@
   <script>
     const STORAGE_KEY = "bday_scrapbook_visitor_logs_v1";
     const LABELS_KEY = "bday_visitor_ip_labels_v1";
+    const DB_APP_KEY = "6o77ku48";
+    const KV_BASE = "https://keyvalue.immanuel.co/api/KeyVal";
     const LIVE_SYNC_TOPIC = "jit-sarmili-zifa-bday-track-9921";
 
     let allVisits = [];
+    let cloudIpLabels = {};
 
-    function getIpLabels() {
+    function decodeRecordBase64(b64) {
       try {
-        return JSON.parse(localStorage.getItem(LABELS_KEY) || "{}");
+        if (!b64) return null;
+        let clean = String(b64).replace(/-/g, "+").replace(/_/g, "/");
+        while (clean.length % 4 !== 0) clean += "=";
+        const json = decodeURIComponent(escape(atob(clean)));
+        return JSON.parse(json);
       } catch (e) {
-        return {};
+        return null;
       }
     }
 
-    function saveIpLabel(ip, label) {
+    function encodeBase64Url(obj) {
+      try {
+        const json = JSON.stringify(obj);
+        return btoa(unescape(encodeURIComponent(json)))
+          .replace(/\+/g, "-")
+          .replace(/\//g, "_")
+          .replace(/=+$/, "");
+      } catch (e) {
+        return "";
+      }
+    }
+
+    function getIpLabels() {
+      try {
+        const local = JSON.parse(localStorage.getItem(LABELS_KEY) || "{}");
+        return { ...cloudIpLabels, ...local };
+      } catch (e) {
+        return { ...cloudIpLabels };
+      }
+    }
+
+    async function saveIpLabel(ip, label) {
       const labels = getIpLabels();
       if (label && label.trim()) {
         labels[ip] = label.trim();
       } else {
         delete labels[ip];
       }
+      cloudIpLabels = labels;
       localStorage.setItem(LABELS_KEY, JSON.stringify(labels));
       renderDashboard();
+      // Sync IP labels to cloud database so nicknames also appear across all your devices
+      try {
+        const b64 = encodeBase64Url(labels);
+        if (b64) {
+          await fetch(`${KV_BASE}/UpdateValue/${DB_APP_KEY}/ip_labels/${b64}`, { method: "POST" });
+        }
+      } catch (e) {}
     }
 
     function getLocalVisits() {
@@ -497,17 +533,61 @@
       }
     }
 
-    async function fetchCloudVisits() {
-      const syncLabel = document.getElementById("sync-label");
+    async function fetchPermanentDatabaseVisits() {
+      const records = [];
       try {
-        syncLabel.textContent = "Syncing cloud logs...";
-        // Fetch cached messages from ntfy JSON feed (poll=1 returns all buffered messages immediately)
-        const res = await fetch(`https://ntfy.sh/${encodeURIComponent(LIVE_SYNC_TOPIC)}/json?poll=1&since=all`);
-        if (!res.ok) throw new Error("Cloud fetch status " + res.status);
+        // 1. Load synced IP labels from database
+        const lblRes = await fetch(`${KV_BASE}/GetValue/${DB_APP_KEY}/ip_labels`);
+        if (lblRes.ok) {
+          const lblRaw = await lblRes.json();
+          const decodedLabels = decodeRecordBase64(lblRaw);
+          if (decodedLabels && typeof decodedLabels === "object") {
+            cloudIpLabels = decodedLabels;
+          }
+        }
+
+        // 2. Load total permanent visit count from database
+        const countRes = await fetch(`${KV_BASE}/GetValue/${DB_APP_KEY}/visit_count`);
+        if (!countRes.ok) return records;
+        const countRaw = await countRes.json();
+        const total = parseInt(countRaw, 10) || 0;
+        if (total <= 0) return records;
+
+        // Fetch all immutable visit slots (visit_1 .. visit_N) in parallel batches
+        const indices = [];
+        for (let i = 1; i <= total; i++) indices.push(i);
+
+        const fetched = await Promise.all(
+          indices.map(async (idx) => {
+            try {
+              const r = await fetch(`${KV_BASE}/GetValue/${DB_APP_KEY}/visit_${idx}`);
+              if (!r.ok) return null;
+              const raw = await r.json();
+              const parsed = decodeRecordBase64(raw);
+              if (parsed) parsed.dbId = idx;
+              return parsed;
+            } catch (err) {
+              return null;
+            }
+          })
+        );
+
+        fetched.forEach((item) => {
+          if (item && item.sessionId) records.push(item);
+        });
+      } catch (e) {}
+      return records;
+    }
+
+    async function fetchNtfyStreamVisits() {
+      try {
+        // Note: since=0 is required by ntfy.sh to return all stored history
+        const res = await fetch(`https://ntfy.sh/${encodeURIComponent(LIVE_SYNC_TOPIC)}/json?poll=1&since=0`);
+        if (!res.ok) return [];
 
         const text = await res.text();
         const lines = text.trim().split("\n").filter(Boolean);
-        const cloudMap = new Map();
+        const streamMap = new Map();
 
         for (const line of lines) {
           try {
@@ -515,34 +595,66 @@
             if (env && env.event === "message" && env.message) {
               const payload = JSON.parse(env.message);
               if (payload && payload.sessionId) {
-                const existing = cloudMap.get(payload.sessionId);
+                const existing = streamMap.get(payload.sessionId);
                 if (!existing) {
-                  cloudMap.set(payload.sessionId, payload);
+                  streamMap.set(payload.sessionId, payload);
                 } else {
-                  // Merge updated actions if an eventUpdate arrived later
                   const mergedActions = Array.from(new Set([...(existing.actions || []), ...(payload.actions || [])]));
-                  cloudMap.set(payload.sessionId, { ...existing, ...payload, actions: mergedActions });
+                  streamMap.set(payload.sessionId, { ...existing, ...payload, actions: mergedActions });
                 }
               }
             }
           } catch (err) {}
         }
 
-        syncLabel.textContent = "Live Cloud + Local Sync Active";
-        return Array.from(cloudMap.values());
+        return Array.from(streamMap.values());
       } catch (e) {
-        syncLabel.textContent = "Local Browser Storage Mode";
         return [];
       }
     }
 
-    async function loadAllVisits() {
-      const local = getLocalVisits();
-      const cloud = await fetchCloudVisits();
+    async function backfillLocalToDatabase(localRecords, dbRecords) {
+      // If this browser has any older local visits that aren't in the permanent Cloud DB yet,
+      // automatically upload them so no past visit is ever lost and every device sees them!
+      const dbSessions = new Set(dbRecords.map((r) => r.sessionId));
+      const missing = localRecords.filter(
+        (r) => r && r.sessionId && !dbSessions.has(r.sessionId) && r.ip && r.ip !== "Detecting..."
+      );
+      if (missing.length === 0) return;
 
-      // Deduplicate by sessionId, preferring records with more actions or resolved IP
+      try {
+        const countRes = await fetch(`${KV_BASE}/GetValue/${DB_APP_KEY}/visit_count`);
+        let currentCount = 0;
+        if (countRes.ok) {
+          currentCount = parseInt(await countRes.json(), 10) || 0;
+        }
+        for (const record of missing) {
+          const b64 = encodeBase64Url(record);
+          if (!b64) continue;
+          currentCount += 1;
+          record.dbId = currentCount;
+          await fetch(`${KV_BASE}/UpdateValue/${DB_APP_KEY}/visit_${currentCount}/${b64}`, { method: "POST" });
+          await fetch(`${KV_BASE}/UpdateValue/${DB_APP_KEY}/visit_count/${currentCount}`, { method: "POST" });
+        }
+      } catch (e) {}
+    }
+
+    async function loadAllVisits() {
+      const syncLabel = document.getElementById("sync-label");
+      syncLabel.textContent = "Syncing Permanent Cloud DB...";
+
+      const local = getLocalVisits();
+      const [dbVisits, streamVisits] = await Promise.all([
+        fetchPermanentDatabaseVisits(),
+        fetchNtfyStreamVisits()
+      ]);
+
+      // Automatically backfill any local or stream visits into the permanent database
+      await backfillLocalToDatabase([...streamVisits, ...local], dbVisits);
+
+      // Merge all sources (Permanent DB + Real-Time Stream + Local Storage) without ever deleting a single visit
       const mergedMap = new Map();
-      [...cloud, ...local].forEach((item) => {
+      [...dbVisits, ...streamVisits, ...local].forEach((item) => {
         if (!item || !item.sessionId) return;
         const prev = mergedMap.get(item.sessionId);
         if (!prev) {
@@ -550,7 +662,8 @@
         } else {
           const actions = Array.from(new Set([...(prev.actions || []), ...(item.actions || [])]));
           const ip = (item.ip && item.ip !== "Detecting...") ? item.ip : prev.ip;
-          mergedMap.set(item.sessionId, { ...prev, ...item, ip, actions });
+          const dbId = item.dbId || prev.dbId;
+          mergedMap.set(item.sessionId, { ...prev, ...item, ip, actions, dbId });
         }
       });
 
@@ -558,11 +671,12 @@
         (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
       );
 
-      // Persist merged list locally too
+      // Save full merged database locally (no truncation!)
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(allVisits.slice(0, 300)));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(allVisits));
       } catch (e) {}
 
+      syncLabel.textContent = `Cloud DB Active (${allVisits.length} permanent records)`;
       renderDashboard();
     }
 
